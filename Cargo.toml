@@ -1,0 +1,26 @@
+[workspace]
+
+[package]
+name = "bpf-valgrind-plugin"
+version = "0.1.0"
+edition = "2021"
+description = "Valgrind BPF profiling plugin for Solana validator"
+authors = ["NeonLabs Maintainers <maintainers@neonlabs.org>"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+anyhow = "=1.0.64"
+bpf-profile = { git = "https://github.com/neonlabsorg/bpf-profile.git", branch = "NDEV-866-refactoring" }
+log = "0.4.17"
+serde = "1.0.147"
+serde_derive = "1.0.147"
+serde_json = "1.0.89"
+solana-bpf-tracer-plugin-interface = { git = "https://github.com/neonlabsorg/solana.git", branch = "bpf-tracing-plugins" }
+solana_rbpf = { git = "https://github.com/neonlabsorg/rbpf.git", branch = "NDEV-910-tracer-refactoring" }
+solana-sdk = { git = "https://github.com/neonlabsorg/solana.git", branch = "bpf-tracing-plugins" }
+thiserror = "=1.0.35"
+
+[patch.crates-io]
+solana_rbpf = { git = "https://github.com/neonlabsorg/rbpf.git", branch = "NDEV-910-tracer-refactoring" }
