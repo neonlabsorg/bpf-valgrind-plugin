@@ -57,14 +57,15 @@ impl BpfTracerPlugin for BpfValgrindPlugin {
     fn trace_bpf<'a>(
         &mut self,
         program_id: &Pubkey,
-        block_hash: &Hash,
+        _block_hash: &Hash,
+        transaction_id: &[u8],
         trace_analyzer: &TraceAnalyzer,
         trace: &[TraceItem],
     ) -> Result<()> {
         if let Some(worker_stuff) = &self.worker_stuff {
             let worker_message = WorkerMessage::WriteProfile {
                 program_id: *program_id,
-                block_hash: *block_hash,
+                transaction_id: solana_sdk::bs58::encode(transaction_id).into_string(),
                 trace_analyzer: trace_analyzer.to_owned(),
                 trace: trace.to_owned(),
             };

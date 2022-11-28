@@ -13,7 +13,6 @@ use solana_bpf_tracer_plugin_interface::bpf_tracer_plugin_interface::{
 use solana_rbpf::disassembler::disassemble_instruction;
 use solana_rbpf::ebpf;
 use solana_rbpf::vm::{TraceAnalyzer, TraceItem};
-use solana_sdk::hash::Hash;
 use solana_sdk::pubkey::Pubkey;
 
 use crate::config::PluginConfig;
@@ -21,7 +20,7 @@ use crate::config::PluginConfig;
 pub enum WorkerMessage {
     WriteProfile {
         program_id: Pubkey,
-        block_hash: Hash,
+        transaction_id: String,
         trace_analyzer: TraceAnalyzer<'static>,
         trace: Vec<TraceItem>,
     },
@@ -46,21 +45,21 @@ impl Worker {
     ) -> Result<()> {
         let receiver = receiver.lock().expect("Poisoned Mutex");
 
-        while let Ok(message) = receiver.recv() {
+        while let Ok(message) = &receiver.recv() {
             match message {
                 WorkerMessage::WriteProfile {
                     program_id,
-                    block_hash,
+                    transaction_id,
                     trace_analyzer,
                     trace,
                 } => {
                     if let Some(program_ids) = config.programs() {
-                        if !program_ids.contains(&program_id) {
+                        if !program_ids.contains(program_id) {
                             continue;
                         }
                     }
 
-                    Self::write_profile(&config, program_id, block_hash, trace_analyzer, trace)
+                    Self::write_profile(&config, program_id, transaction_id, trace_analyzer, trace)
                         .map_err(|err| BpfTracerPluginError::Custom(err.into()))?;
                 }
 
@@ -73,10 +72,10 @@ impl Worker {
 
     fn write_profile(
         config: &PluginConfig,
-        program_id: Pubkey,
-        block_hash: Hash,
-        trace_analyzer: TraceAnalyzer<'static>,
-        trace: Vec<TraceItem>,
+        program_id: &Pubkey,
+        transaction_id: &str,
+        trace_analyzer: &TraceAnalyzer<'static>,
+        trace: &[TraceItem],
     ) -> anyhow::Result<()> {
         let dump_path = config
             .dump_dir()
@@ -86,13 +85,13 @@ impl Worker {
         let asm_path = config
             .assembly_dir()
             .as_ref()
-            .map(|asm_dir| asm_dir.join(block_hash.to_string()))
+            .map(|asm_dir| asm_dir.join(transaction_id))
             .map(|asm_dir| {
                 create_dir_all(&asm_dir).map(|_| asm_dir.join(format!("{}.asm", program_id)))
             })
             .transpose()?;
 
-        let output_dir = config.output_dir().join(block_hash.to_string());
+        let output_dir = config.output_dir().join(transaction_id);
         create_dir_all(&output_dir)?;
 
         let output_path = output_dir.join(format!("{}.profile", program_id));
@@ -103,7 +102,7 @@ impl Worker {
         let mut lc = -1;
         let instruction_iterator = trace
             .iter()
-            .map(|item| Self::resolve_instruction(item, &trace_analyzer, &mut lc));
+            .map(|item| Self::resolve_instruction(item, trace_analyzer, &mut lc));
 
         bpf_profile::gen::trace::process(instruction_iterator, &mut profile)?;
 
