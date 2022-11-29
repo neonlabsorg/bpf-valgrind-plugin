@@ -1,21 +1,23 @@
 use std::collections::BTreeSet;
 use std::fs::read_to_string;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
-use anyhow::Result;
-use serde::Deserialize;
-use solana_sdk::pubkey::Pubkey;
+use serde::de::Error;
+use serde::{Deserialize, Deserializer};
+use solana_sdk::pubkey::{ParsePubkeyError, Pubkey};
 
 #[derive(Debug, Deserialize)]
 pub struct PluginConfig {
     output_dir: PathBuf,
     dump_dir: Option<PathBuf>,
     assembly_dir: Option<PathBuf>,
+    #[serde(deserialize_with = "deserialize_programs")]
     programs: Option<BTreeSet<Pubkey>>,
 }
 
 impl PluginConfig {
-    pub fn from_json(path: impl AsRef<Path>) -> Result<Self> {
+    pub fn from_json(path: impl AsRef<Path>) -> anyhow::Result<Self> {
         Ok(serde_json::from_str(&read_to_string(path)?)?)
     }
 
@@ -33,5 +35,31 @@ impl PluginConfig {
 
     pub fn programs(&self) -> &Option<BTreeSet<Pubkey>> {
         &self.programs
+    }
+}
+
+pub fn deserialize_programs<'de, D>(d: D) -> Result<Option<BTreeSet<Pubkey>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let programs: Option<Vec<String>> = serde::Deserialize::deserialize(d)?;
+    let mut first_error: Option<ParsePubkeyError> = None;
+    let programs: Option<BTreeSet<Pubkey>> = programs.map(|programs| {
+        programs
+            .iter()
+            .filter_map(|pubkey| match Pubkey::from_str(pubkey) {
+                Ok(pubkey) => Some(pubkey),
+                Err(err) => {
+                    if first_error.is_none() {
+                        first_error = Some(err);
+                    }
+                    None
+                }
+            })
+            .collect()
+    });
+    match first_error {
+        None => Ok(programs),
+        Some(err) => Err(Error::custom(format!("{:?}", err))),
     }
 }

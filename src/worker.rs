@@ -54,7 +54,7 @@ impl Worker {
                     trace,
                 } => {
                     if let Some(program_ids) = config.programs() {
-                        if !program_ids.contains(program_id) {
+                        if !program_ids.is_empty() && !program_ids.contains(program_id) {
                             continue;
                         }
                     }
