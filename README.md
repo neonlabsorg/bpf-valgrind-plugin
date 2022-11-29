@@ -38,7 +38,7 @@ Create plugin configuration file (bpf-tracer-plugin.json):
 * `assembly_dir` *[optional]* — path where asm files will be stored. Files will be located under subdirectories, named by current
   transactions ID in base58 encoding. If this parameter is omitted, no assembly files will be written.
 * `dump_dir` *[optional]* — path where to get dump files. You can create the dump file by passing `--dump` flag to `cargo-build-bpf`.
-  These files must be named in this form: `<program_id>.dump`, where `<program_id>` is base58-encoded public key of the program.
+  These files must be named in the form: `<program_id>.dump`, where `<program_id>` is base58-encoded public key of the program.
 * `programs` *[optional]* — list of base58-encoded public keys of programs being profiled. If omitted or empty, all executed 
   programs will be profiled.
 

@@ -94,7 +94,7 @@ impl Worker {
         let output_dir = config.output_dir().join(transaction_id);
         create_dir_all(&output_dir)?;
 
-        let output_path = output_dir.join(format!("{}.profile", program_id));
+        let output_path = output_dir.join(format!("{}.out", program_id));
 
         let resolver = bpf_profile::resolver::read(dump_path.as_ref().map(|path| path.as_ref()))?;
         let mut profile = Profile::new(resolver, asm_path.as_ref().map(|path| path.as_ref()))?;
