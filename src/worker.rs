@@ -7,9 +7,7 @@ use std::thread::JoinHandle;
 
 use bpf_profile::bpf::{Instruction, InstructionData};
 use bpf_profile::gen::trace::Profile;
-use solana_bpf_tracer_plugin_interface::bpf_tracer_plugin_interface::{
-    BpfTracerPluginError, Result,
-};
+use log::error;
 use solana_rbpf::disassembler::disassemble_instruction;
 use solana_rbpf::ebpf;
 use solana_rbpf::vm::{TraceAnalyzer, TraceItem};
@@ -31,19 +29,19 @@ pub enum WorkerMessage {
 pub struct Worker;
 
 impl Worker {
-    pub fn spawn(
-        config: PluginConfig,
-        receiver: Receiver<WorkerMessage>,
-    ) -> JoinHandle<Result<()>> {
+    pub fn spawn(config: PluginConfig, receiver: Receiver<WorkerMessage>) -> JoinHandle<()> {
         let receiver = Mutex::new(receiver);
         thread::spawn(move || Self::process_messages(config, receiver))
     }
 
-    fn process_messages(
-        config: PluginConfig,
-        receiver: Mutex<Receiver<WorkerMessage>>,
-    ) -> Result<()> {
-        let receiver = receiver.lock().expect("Poisoned Mutex");
+    fn process_messages(config: PluginConfig, receiver: Mutex<Receiver<WorkerMessage>>) {
+        let receiver = match receiver.lock() {
+            Ok(receiver) => receiver,
+            Err(err) => {
+                error!("{:?}", err);
+                return;
+            }
+        };
 
         while let Ok(message) = &receiver.recv() {
             match message {
@@ -59,15 +57,25 @@ impl Worker {
                         }
                     }
 
-                    Self::write_profile(&config, program_id, transaction_id, trace_analyzer, trace)
-                        .map_err(|err| BpfTracerPluginError::Custom(err.into()))?;
+                    if let Err(err) = Self::write_profile(
+                        &config,
+                        program_id,
+                        transaction_id,
+                        trace_analyzer,
+                        trace,
+                    ) {
+                        error!(
+                            "Error writing profile for program ID = {} and transaction ID = {}: {:?}",
+                            program_id,
+                            transaction_id,
+                            err,
+                        );
+                    }
                 }
 
                 WorkerMessage::Shutdown => break,
             }
         }
-
-        Ok(())
     }
 
     fn write_profile(

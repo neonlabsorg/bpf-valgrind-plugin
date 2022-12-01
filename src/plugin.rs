@@ -14,7 +14,7 @@ use crate::worker::{Worker, WorkerMessage};
 #[derive(Debug)]
 struct WorkerStuff {
     sender: SyncSender<WorkerMessage>,
-    worker_handle: JoinHandle<Result<()>>,
+    worker_handle: JoinHandle<()>,
 }
 
 #[derive(Debug, Default)]
@@ -46,8 +46,7 @@ impl BpfTracerPlugin for BpfValgrindPlugin {
                 Err(err) => Box::new(err),
                 Ok(()) => match worker_stuff.worker_handle.join() {
                     Err(err) => err,
-                    Ok(Err(err)) => Box::new(err),
-                    Ok(Ok(())) => return,
+                    Ok(()) => return,
                 },
             };
             error!("Error during unloading of {}: {:?}", self.name(), err);
