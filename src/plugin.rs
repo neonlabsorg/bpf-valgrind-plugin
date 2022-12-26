@@ -5,7 +5,7 @@ use log::error;
 use solana_bpf_tracer_plugin_interface::bpf_tracer_plugin_interface::{
     BpfTracerPlugin, BpfTracerPluginError, Result,
 };
-use solana_rbpf::vm::{TraceAnalyzer, TraceItem};
+use solana_rbpf::static_analysis::{Analysis, TraceLogEntry};
 use solana_sdk::{hash::Hash, pubkey::Pubkey};
 
 use crate::config::PluginConfig;
@@ -53,20 +53,20 @@ impl BpfTracerPlugin for BpfValgrindPlugin {
         }
     }
 
-    fn trace_bpf<'a>(
+    fn trace_bpf(
         &mut self,
         program_id: &Pubkey,
         _block_hash: &Hash,
         transaction_id: &[u8],
-        trace_analyzer: &TraceAnalyzer,
-        trace: &[TraceItem],
+        trace: &[TraceLogEntry],
+        make_analysis: Box<dyn Fn() -> Analysis + Send + Sync>,
     ) -> Result<()> {
         if let Some(worker_stuff) = &self.worker_stuff {
             let worker_message = WorkerMessage::WriteProfile {
                 program_id: *program_id,
                 transaction_id: solana_sdk::bs58::encode(transaction_id).into_string(),
-                trace_analyzer: trace_analyzer.to_owned(),
                 trace: trace.to_owned(),
+                make_analysis,
             };
 
             worker_stuff

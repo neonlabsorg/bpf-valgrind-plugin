@@ -10,7 +10,7 @@ use bpf_profile::gen::trace::Profile;
 use log::error;
 use solana_rbpf::disassembler::disassemble_instruction;
 use solana_rbpf::ebpf;
-use solana_rbpf::vm::{TraceAnalyzer, TraceItem};
+use solana_rbpf::static_analysis::{Analysis, TraceLogEntry};
 use solana_sdk::pubkey::Pubkey;
 
 use crate::config::PluginConfig;
@@ -19,8 +19,8 @@ pub enum WorkerMessage {
     WriteProfile {
         program_id: Pubkey,
         transaction_id: String,
-        trace_analyzer: TraceAnalyzer<'static>,
-        trace: Vec<TraceItem>,
+        trace: Vec<TraceLogEntry>,
+        make_analysis: Box<dyn Fn() -> Analysis + Send + Sync>,
     },
 
     Shutdown,
@@ -48,8 +48,8 @@ impl Worker {
                 WorkerMessage::WriteProfile {
                     program_id,
                     transaction_id,
-                    trace_analyzer,
                     trace,
+                    make_analysis,
                 } => {
                     if let Some(program_ids) = config.programs() {
                         if !program_ids.is_empty() && !program_ids.contains(program_id) {
@@ -57,13 +57,11 @@ impl Worker {
                         }
                     }
 
-                    if let Err(err) = Self::write_profile(
-                        &config,
-                        program_id,
-                        transaction_id,
-                        trace_analyzer,
-                        trace,
-                    ) {
+                    let analysis = make_analysis();
+
+                    if let Err(err) =
+                        Self::write_profile(&config, program_id, transaction_id, &analysis, trace)
+                    {
                         error!(
                             "Error writing profile for program ID = {} and transaction ID = {}: {:?}",
                             program_id,
@@ -82,8 +80,8 @@ impl Worker {
         config: &PluginConfig,
         program_id: &Pubkey,
         transaction_id: &str,
-        trace_analyzer: &TraceAnalyzer<'static>,
-        trace: &[TraceItem],
+        analysis: &Analysis,
+        trace: &[TraceLogEntry],
     ) -> anyhow::Result<()> {
         let dump_path = config
             .dump_dir()
@@ -107,10 +105,11 @@ impl Worker {
         let resolver = bpf_profile::resolver::read(dump_path.as_ref().map(|path| path.as_ref()))?;
         let mut profile = Profile::new(resolver, asm_path.as_ref().map(|path| path.as_ref()))?;
 
+        let pc_to_insn_index = analysis.calc_pc_to_insn_index();
         let mut lc = -1;
         let instruction_iterator = trace
             .iter()
-            .map(|item| Self::resolve_instruction(item, trace_analyzer, &mut lc));
+            .map(|item| Self::resolve_instruction(item, analysis, &pc_to_insn_index, &mut lc));
 
         bpf_profile::gen::trace::process(instruction_iterator, &mut profile)?;
 
@@ -120,25 +119,41 @@ impl Worker {
     }
 
     fn resolve_instruction(
-        item: &TraceItem,
-        trace_analyzer: &TraceAnalyzer,
+        item: &TraceLogEntry,
+        analysis: &Analysis,
+        pc_to_insn_index: &[usize],
         lc: &mut isize,
     ) -> bpf_profile::error::Result<(usize, Instruction)> {
-        let ebpf_instr = trace_analyzer.instruction(item);
+        let pc = item[11] as usize;
+        let ebpf_instr = &analysis.instructions[pc_to_insn_index[pc]];
         let data = match ebpf_instr.opc {
             ebpf::EXIT => InstructionData::Exit,
-            ebpf::CALL_IMM
-                if !trace_analyzer
-                    .syscall_symbols()
-                    .contains_key(&(ebpf_instr.imm as u32)) =>
-            {
-                InstructionData::Call {
-                    operation: "call".into(),
-                    target: ebpf_instr.imm as usize,
+            ebpf::CALL_IMM => {
+                let mut target = None;
+                if analysis
+                    .executable()
+                    .get_loader()
+                    .get_config()
+                    .static_syscalls
+                {
+                    if ebpf_instr.src != 0 {
+                        target = Some(ebpf_instr.imm as usize);
+                    }
+                } else {
+                    target = analysis
+                        .executable()
+                        .lookup_internal_function(ebpf_instr.imm as u32)
+                }
+                match target {
+                    Some(target) => InstructionData::Call {
+                        operation: "call".into(),
+                        target,
+                    },
+                    None => InstructionData::Other,
                 }
             }
             ebpf::CALL_REG => {
-                let registers = TraceAnalyzer::registers(item);
+                let registers = &item[0..11];
                 assert!(ebpf_instr.imm >= 0);
                 assert!((ebpf_instr.imm as usize) < registers.len());
                 InstructionData::Call {
@@ -151,12 +166,12 @@ impl Worker {
 
         let text = disassemble_instruction(
             ebpf_instr,
-            trace_analyzer.cfg_nodes(),
-            trace_analyzer.syscall_symbols(),
-            trace_analyzer.function_registry(),
+            &analysis.cfg_nodes,
+            analysis.executable().get_function_registry(),
+            analysis.executable().get_loader(),
         );
 
-        let instruction = Instruction::new(TraceAnalyzer::pc(item), data, text);
+        let instruction = Instruction::new(pc, data, text);
 
         *lc += 1;
 
