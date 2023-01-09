@@ -1,11 +1,12 @@
 use std::sync::mpsc::{sync_channel, SyncSender};
+use std::sync::Arc;
 use std::thread::JoinHandle;
 
 use log::error;
 use solana_bpf_tracer_plugin_interface::bpf_tracer_plugin_interface::{
-    BpfTracerPlugin, BpfTracerPluginError, Result,
+    BpfTracerPlugin, BpfTracerPluginError, ExecutableGetter, Result,
 };
-use solana_rbpf::static_analysis::{Analysis, TraceLogEntry};
+use solana_rbpf::static_analysis::TraceLogEntry;
 use solana_sdk::{hash::Hash, pubkey::Pubkey};
 
 use crate::config::PluginConfig;
@@ -59,14 +60,14 @@ impl BpfTracerPlugin for BpfValgrindPlugin {
         _block_hash: &Hash,
         transaction_id: &[u8],
         trace: &[TraceLogEntry],
-        make_analysis: Box<dyn Fn() -> Analysis + Send + Sync>,
+        executable_getter: Arc<dyn ExecutableGetter>,
     ) -> Result<()> {
         if let Some(worker_stuff) = &self.worker_stuff {
             let worker_message = WorkerMessage::WriteProfile {
                 program_id: *program_id,
                 transaction_id: solana_sdk::bs58::encode(transaction_id).into_string(),
                 trace: trace.to_owned(),
-                make_analysis,
+                executable_getter,
             };
 
             worker_stuff
