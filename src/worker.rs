@@ -12,6 +12,7 @@ use log::error;
 use solana_bpf_tracer_plugin_interface::bpf_tracer_plugin_interface::ExecutableGetter;
 use solana_rbpf::disassembler::disassemble_instruction;
 use solana_rbpf::ebpf;
+use solana_rbpf::ebpf::INSN_SIZE;
 use solana_rbpf::elf::Executable;
 use solana_rbpf::static_analysis::{Analysis, TraceLogEntry};
 use solana_rbpf::vm::TestContextObject;
@@ -108,13 +109,23 @@ impl Worker {
 
         let output_path = output_dir.join(format!("{}.out", program_id));
 
-        let resolver = bpf_profile::resolver::read(dump_path.as_ref().map(|path| path.as_ref()))?;
+        let resolver = bpf_profile::resolver::read(dump_path.as_ref().and_then(|path| {
+            if path.exists() {
+                Some(path.as_ref())
+            } else {
+                None
+            }
+        }))?;
+
         let mut profile = Profile::new(resolver, asm_path.as_ref().map(|path| path.as_ref()))?;
 
-        let analysis = Analysis::from_executable(executable_getter.get_executable())
-            .map_err(|err| anyhow!("{err}"))?;
-
+        let executable = executable_getter.get_executable();
+        let analysis = Analysis::from_executable(executable).map_err(|err| anyhow!("{err}"))?;
         let pc_to_insn_index = Self::calc_pc_to_insn_index(&analysis);
+
+        let text_section_offset =
+            executable.get_text_bytes().0 - executable.get_ro_region().vm_addr;
+        let pc_offset = text_section_offset as usize / INSN_SIZE;
 
         let mut lc = -1;
         let instruction_iterator = trace.iter().map(|item| {
@@ -123,6 +134,7 @@ impl Worker {
                 executable_getter.get_executable(),
                 &analysis,
                 &pc_to_insn_index,
+                pc_offset,
                 &mut lc,
             )
         });
@@ -139,6 +151,7 @@ impl Worker {
         executable: &Executable<TestContextObject>,
         analysis: &Analysis,
         pc_to_insn_index: &[usize],
+        pc_offset: usize,
         lc: &mut isize,
     ) -> bpf_profile::error::Result<(usize, Instruction)> {
         let pc = item[11] as usize;
@@ -146,18 +159,18 @@ impl Worker {
         let data = match ebpf_instr.opc {
             ebpf::EXIT => InstructionData::Exit,
             ebpf::CALL_IMM => {
-                let mut target = None;
+                let mut target_pc = None;
                 if executable.get_loader().get_config().static_syscalls {
                     if ebpf_instr.src != 0 {
-                        target = Some(ebpf_instr.imm as usize);
+                        target_pc = Some(ebpf_instr.imm as usize);
                     }
                 } else {
-                    target = executable.lookup_internal_function(ebpf_instr.imm as u32)
+                    target_pc = executable.lookup_internal_function(ebpf_instr.imm as u32)
                 }
-                match target {
-                    Some(target) => InstructionData::Call {
+                match target_pc {
+                    Some(target_pc) => InstructionData::Call {
                         operation: "call".into(),
-                        target,
+                        target: INSN_SIZE * (target_pc + pc_offset),
                     },
                     None => InstructionData::Other,
                 }
@@ -168,7 +181,7 @@ impl Worker {
                 assert!((ebpf_instr.imm as usize) < registers.len());
                 InstructionData::Call {
                     operation: "callx".into(),
-                    target: registers[ebpf_instr.imm as usize] as usize,
+                    target: registers[ebpf_instr.imm as usize] as usize + pc_offset * INSN_SIZE,
                 }
             }
             _ => InstructionData::Other,
@@ -181,7 +194,7 @@ impl Worker {
             executable.get_loader(),
         );
 
-        let instruction = Instruction::new(pc, data, text);
+        let instruction = Instruction::new(pc + pc_offset, data, text);
 
         *lc += 1;
 
