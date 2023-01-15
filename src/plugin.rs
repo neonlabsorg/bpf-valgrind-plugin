@@ -4,7 +4,7 @@ use std::thread::JoinHandle;
 
 use log::error;
 use solana_bpf_tracer_plugin_interface::bpf_tracer_plugin_interface::{
-    BpfTracerPlugin, BpfTracerPluginError, ExecutableGetter, Result,
+    BpfTracerPlugin, BpfTracerPluginError, ExecutorAdditional, Result,
 };
 use solana_rbpf::static_analysis::TraceLogEntry;
 use solana_sdk::{hash::Hash, pubkey::Pubkey};
@@ -60,14 +60,14 @@ impl BpfTracerPlugin for BpfValgrindPlugin {
         _block_hash: &Hash,
         transaction_id: &[u8],
         trace: &[TraceLogEntry],
-        executable_getter: Arc<dyn ExecutableGetter>,
+        executor: Arc<dyn ExecutorAdditional>,
     ) -> Result<()> {
         if let Some(worker_stuff) = &self.worker_stuff {
             let worker_message = WorkerMessage::WriteProfile {
                 program_id: *program_id,
                 transaction_id: solana_sdk::bs58::encode(transaction_id).into_string(),
                 trace: trace.to_owned(),
-                executable_getter,
+                executor,
             };
 
             worker_stuff
