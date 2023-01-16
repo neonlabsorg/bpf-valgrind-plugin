@@ -292,7 +292,7 @@ dependencies = [
 [[package]]
 name = "bpf-profile"
 version = "1.0.0"
-source = "git+https://github.com/neonlabsorg/bpf-profile.git?branch=NDEV-866-refactoring#c7055e5c22e506ecb6c1d3ac8e0d143c8f3c3f8c"
+source = "git+https://github.com/neonlabsorg/bpf-profile.git?branch=NDEV-866-refactoring#63264812209f7b0c11593faea4528803d88584ff"
 dependencies = [
  "lazy_static",
  "regex",
