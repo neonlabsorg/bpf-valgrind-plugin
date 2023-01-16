@@ -292,7 +292,7 @@ dependencies = [
 [[package]]
 name = "bpf-profile"
 version = "1.0.0"
-source = "git+https://github.com/neonlabsorg/bpf-profile.git?branch=NDEV-866-refactoring#0cb0aae2a1bb79caa2f7c6a1e3f913ff13b74289"
+source = "git+https://github.com/neonlabsorg/bpf-profile.git?branch=NDEV-866-refactoring#1e38494f3571e52cf9a1aceebf9702db422d36c3"
 dependencies = [
  "lazy_static",
  "regex",
@@ -1528,7 +1528,7 @@ checksum = "a507befe795404456341dfab10cef66ead4c041f62b8b11bbb92bffe5d0953e0"
 [[package]]
 name = "solana-bpf-tracer-plugin-interface"
 version = "1.15.0"
-source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#7d7c2790f45b15258a0f8b98c5c3f85d38de47b1"
+source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#339980b91f7919887dc9d9831ec7c8e6a0aae2ba"
 dependencies = [
  "solana-sdk",
  "solana_rbpf",
@@ -1538,7 +1538,7 @@ dependencies = [
 [[package]]
 name = "solana-frozen-abi"
 version = "1.15.0"
-source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#7d7c2790f45b15258a0f8b98c5c3f85d38de47b1"
+source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#339980b91f7919887dc9d9831ec7c8e6a0aae2ba"
 dependencies = [
  "ahash",
  "blake3",
@@ -1571,7 +1571,7 @@ dependencies = [
 [[package]]
 name = "solana-frozen-abi-macro"
 version = "1.15.0"
-source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#7d7c2790f45b15258a0f8b98c5c3f85d38de47b1"
+source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#339980b91f7919887dc9d9831ec7c8e6a0aae2ba"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1582,7 +1582,7 @@ dependencies = [
 [[package]]
 name = "solana-logger"
 version = "1.15.0"
-source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#7d7c2790f45b15258a0f8b98c5c3f85d38de47b1"
+source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#339980b91f7919887dc9d9831ec7c8e6a0aae2ba"
 dependencies = [
  "env_logger",
  "lazy_static",
@@ -1592,7 +1592,7 @@ dependencies = [
 [[package]]
 name = "solana-program"
 version = "1.15.0"
-source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#7d7c2790f45b15258a0f8b98c5c3f85d38de47b1"
+source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#339980b91f7919887dc9d9831ec7c8e6a0aae2ba"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -1644,7 +1644,7 @@ dependencies = [
 [[package]]
 name = "solana-sdk"
 version = "1.15.0"
-source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#7d7c2790f45b15258a0f8b98c5c3f85d38de47b1"
+source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#339980b91f7919887dc9d9831ec7c8e6a0aae2ba"
 dependencies = [
  "assert_matches",
  "base64 0.13.1",
@@ -1695,7 +1695,7 @@ dependencies = [
 [[package]]
 name = "solana-sdk-macro"
 version = "1.15.0"
-source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#7d7c2790f45b15258a0f8b98c5c3f85d38de47b1"
+source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#339980b91f7919887dc9d9831ec7c8e6a0aae2ba"
 dependencies = [
  "bs58",
  "proc-macro2",
@@ -1707,7 +1707,8 @@ dependencies = [
 [[package]]
 name = "solana_rbpf"
 version = "0.2.38"
-source = "git+https://github.com/neonlabsorg/rbpf.git?rev=d08e9e642eb2ac79a2681d006f3da97a032dc97b#d08e9e642eb2ac79a2681d006f3da97a032dc97b"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4e9e5085099858adba23d0a0b5298da8803f89999cb567ecafab9c916cdf53d"
 dependencies = [
  "byteorder",
  "combine",
