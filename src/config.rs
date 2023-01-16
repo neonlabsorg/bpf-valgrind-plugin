@@ -7,6 +7,8 @@ use serde::de::Error;
 use serde::{Deserialize, Deserializer};
 use solana_sdk::pubkey::{ParsePubkeyError, Pubkey};
 
+const DEFAULT_NUM_THREADS: usize = 2;
+
 #[derive(Debug, Deserialize)]
 pub struct PluginConfig {
     output_dir: PathBuf,
@@ -14,6 +16,7 @@ pub struct PluginConfig {
     assembly_dir: Option<PathBuf>,
     #[serde(deserialize_with = "deserialize_programs")]
     programs: Option<BTreeSet<Pubkey>>,
+    num_threads: Option<usize>,
 }
 
 impl PluginConfig {
@@ -35,6 +38,10 @@ impl PluginConfig {
 
     pub fn programs(&self) -> &Option<BTreeSet<Pubkey>> {
         &self.programs
+    }
+
+    pub fn num_threads(&self) -> usize {
+        self.num_threads.unwrap_or(DEFAULT_NUM_THREADS)
     }
 }
 

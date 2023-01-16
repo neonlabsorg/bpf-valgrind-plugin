@@ -1,9 +1,6 @@
 use std::fs::{create_dir_all, File};
 use std::io::BufWriter;
-use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
-use std::thread;
-use std::thread::JoinHandle;
 
 use anyhow::anyhow;
 use bpf_profile::bpf::{Instruction, InstructionData};
@@ -14,73 +11,65 @@ use solana_rbpf::ebpf;
 use solana_rbpf::ebpf::INSN_SIZE;
 use solana_rbpf::static_analysis::{Analysis, TraceLogEntry};
 use solana_sdk::pubkey::Pubkey;
+use threadpool::ThreadPool;
 
 use crate::config::PluginConfig;
 
-pub enum WorkerMessage {
-    WriteProfile {
-        program_id: Pubkey,
-        transaction_id: String,
-        trace: Vec<TraceLogEntry>,
-        executor: Arc<dyn ExecutorAdditional>,
-    },
-
-    Shutdown,
+#[derive(Debug)]
+pub struct Worker {
+    thread_pool: Mutex<ThreadPool>,
+    config: Arc<PluginConfig>,
 }
 
-pub struct Worker;
-
 impl Worker {
-    pub fn spawn(config: PluginConfig, receiver: Receiver<WorkerMessage>) -> JoinHandle<()> {
-        let receiver = Mutex::new(receiver);
-        thread::spawn(move || Self::process_messages(config, receiver))
+    pub fn new(config: PluginConfig) -> Self {
+        Self {
+            thread_pool: Mutex::new(ThreadPool::new(config.num_threads())),
+            config: Arc::new(config),
+        }
     }
 
-    fn process_messages(config: PluginConfig, receiver: Mutex<Receiver<WorkerMessage>>) {
-        let receiver = match receiver.lock() {
-            Ok(receiver) => receiver,
-            Err(err) => {
-                error!("{:?}", err);
+    pub fn wait_for_finishing(&self) {
+        self.thread_pool.lock().expect("Poisoned Mutex").join()
+    }
+
+    pub fn process_trace(
+        &self,
+        program_id: &Pubkey,
+        transaction_id: &[u8],
+        trace: &[TraceLogEntry],
+        executor: Arc<dyn ExecutorAdditional>,
+    ) {
+        if let Some(program_ids) = self.config.programs() {
+            if !program_ids.is_empty() && !program_ids.contains(program_id) {
                 return;
             }
-        };
-
-        while let Ok(message) = &receiver.recv() {
-            match message {
-                WorkerMessage::WriteProfile {
-                    program_id,
-                    transaction_id,
-                    trace,
-                    executor,
-                } => {
-                    if let Some(program_ids) = config.programs() {
-                        if !program_ids.is_empty() && !program_ids.contains(program_id) {
-                            continue;
-                        }
-                    }
-
-                    if let Err(err) =
-                        Self::write_profile(&config, program_id, transaction_id, executor, trace)
-                    {
-                        error!(
-                            "Error writing profile for program ID = {} and transaction ID = {}: {:?}",
-                            program_id,
-                            transaction_id,
-                            err,
-                        );
-                    }
-                }
-
-                WorkerMessage::Shutdown => break,
-            }
         }
+
+        let config = Arc::clone(&self.config);
+        let program_id = *program_id;
+        let transaction_id = solana_sdk::bs58::encode(transaction_id).into_string();
+        let trace = trace.to_vec();
+        self.thread_pool
+            .lock()
+            .expect("Poisoned Mutex")
+            .execute(move || {
+                if let Err(err) =
+                    Self::write_profile(&config, &program_id, &transaction_id, executor, &trace)
+                {
+                    error!(
+                        "Error writing profile for program ID = {} and transaction ID = {}: {:?}",
+                        program_id, transaction_id, err,
+                    );
+                }
+            });
     }
 
     fn write_profile(
         config: &PluginConfig,
         program_id: &Pubkey,
         transaction_id: &str,
-        executor: &Arc<dyn ExecutorAdditional>,
+        executor: Arc<dyn ExecutorAdditional>,
         trace: &[TraceLogEntry],
     ) -> anyhow::Result<()> {
         let dump_path = config

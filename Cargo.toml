@@ -21,3 +21,4 @@ solana-bpf-tracer-plugin-interface = { git = "https://github.com/neonlabsorg/sol
 solana_rbpf = "=0.2.38"
 solana-sdk = { git = "https://github.com/neonlabsorg/solana.git", branch = "bpf-tracing-plugins" }
 thiserror = "=1.0.35"
+threadpool = "1.8.1"
