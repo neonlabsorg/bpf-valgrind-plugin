@@ -161,10 +161,7 @@ impl Worker {
                     target_pc = executor.lookup_internal_function(ebpf_instr.imm as u32)
                 }
                 match target_pc {
-                    Some(target_pc) => InstructionData::Call {
-                        operation: "call".into(),
-                        target: INSN_SIZE * (target_pc + pc_offset),
-                    },
+                    Some(target_pc) => InstructionData::Call(INSN_SIZE * (target_pc + pc_offset)),
                     None => InstructionData::Other,
                 }
             }
@@ -172,10 +169,9 @@ impl Worker {
                 let registers = &item[0..11];
                 assert!(ebpf_instr.imm >= 0);
                 assert!((ebpf_instr.imm as usize) < registers.len());
-                InstructionData::Call {
-                    operation: "callx".into(),
-                    target: registers[ebpf_instr.imm as usize] as usize + pc_offset * INSN_SIZE,
-                }
+                InstructionData::CallX(
+                    registers[ebpf_instr.imm as usize] as usize + pc_offset * INSN_SIZE,
+                )
             }
             _ => InstructionData::Other,
         };
