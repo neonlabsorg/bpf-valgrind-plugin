@@ -37,11 +37,18 @@ impl BpfTracerPlugin for BpfValgrindPlugin {
         _block_hash: &Hash,
         transaction_id: &[u8],
         trace: &[TraceLogEntry],
+        consumed_bpf_units: &[(usize, u64)],
         executor: Arc<dyn ExecutorAdditional>,
     ) -> Result<()> {
-        self.worker
-            .as_ref()
-            .map(|worker| worker.process_trace(program_id, transaction_id, trace, executor));
+        self.worker.as_ref().map(|worker| {
+            worker.process_trace(
+                program_id,
+                transaction_id,
+                trace,
+                consumed_bpf_units,
+                executor,
+            )
+        });
 
         Ok(())
     }

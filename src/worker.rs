@@ -38,6 +38,7 @@ impl Worker {
         program_id: &Pubkey,
         transaction_id: &[u8],
         trace: &[TraceLogEntry],
+        consumed_bpf_units: &[(usize, u64)],
         executor: Arc<dyn ExecutorAdditional>,
     ) {
         if let Some(program_ids) = self.config.programs() {
@@ -50,13 +51,19 @@ impl Worker {
         let program_id = *program_id;
         let transaction_id = solana_sdk::bs58::encode(transaction_id).into_string();
         let trace = trace.to_vec();
+        let consumed_bpf_units = consumed_bpf_units.to_vec();
         self.thread_pool
             .lock()
             .expect("Poisoned Mutex")
             .execute(move || {
-                if let Err(err) =
-                    Self::write_profile(&config, &program_id, &transaction_id, executor, &trace)
-                {
+                if let Err(err) = Self::write_profile(
+                    &config,
+                    &program_id,
+                    &transaction_id,
+                    executor,
+                    &trace,
+                    &consumed_bpf_units,
+                ) {
                     error!(
                         "Error writing profile for program ID = {} and transaction ID = {}: {:?}",
                         program_id, transaction_id, err,
@@ -71,6 +78,7 @@ impl Worker {
         transaction_id: &str,
         executor: Arc<dyn ExecutorAdditional>,
         trace: &[TraceLogEntry],
+        consumed_bpf_units: &[(usize, u64)],
     ) -> anyhow::Result<()> {
         let dump_path = config
             .dump_dir()
@@ -109,23 +117,79 @@ impl Worker {
         let text_section_offset = executor.get_text_section_offset();
         let pc_offset = text_section_offset as usize / INSN_SIZE;
 
-        let mut lc = -1;
-        let instruction_iterator = trace.iter().map(|item| {
-            Self::resolve_instruction(
-                item,
-                &executor,
-                &analysis,
-                &pc_to_insn_index,
-                pc_offset,
-                &mut lc,
-            )
-        });
+        let mut instructions_trace: Vec<_> = trace
+            .iter()
+            .map(|item| {
+                Self::resolve_instruction(item, &executor, &analysis, &pc_to_insn_index, pc_offset)
+            })
+            .collect();
 
+        Self::update_bpf_units(
+            &mut instructions_trace,
+            consumed_bpf_units,
+            &executor,
+            pc_offset,
+            executor.get_config().static_syscalls,
+        );
+
+        let instruction_iterator = instructions_trace
+            .into_iter()
+            .enumerate()
+            .map(|(index, instruction)| Ok((index, instruction)));
         bpf_profile::gen::trace::process(instruction_iterator, &mut profile)?;
 
-        profile.write_callgrind(BufWriter::new(File::create(output_path)?))?;
+        profile.write_callgrind(BufWriter::new(File::create(output_path)?), Some("BPFUnits"))?;
 
         Ok(())
+    }
+
+    fn update_bpf_units(
+        instructions_trace: &mut [Instruction],
+        consumed_bpf_units: &[(usize, u64)],
+        executor: &Arc<dyn ExecutorAdditional>,
+        pc_offset: usize,
+        static_syscalls: bool,
+    ) {
+        let mut cur_index = 0_usize;
+        for (index, logged_units) in consumed_bpf_units {
+            let mut accumulated_bpf_units = 0;
+            for i in cur_index..*index {
+                let instruction = &mut instructions_trace[i];
+                let instruction_bpf_units = Self::get_instructon_bpf_units(
+                    instruction,
+                    executor,
+                    pc_offset,
+                    static_syscalls,
+                );
+                instruction.add_bpf_units(instruction_bpf_units);
+                accumulated_bpf_units += instruction_bpf_units;
+            }
+            instructions_trace[*index].add_bpf_units(
+                logged_units
+                    .checked_sub(accumulated_bpf_units)
+                    .expect("Inconsistent BPF units log"),
+            );
+            cur_index = *index + 1;
+        }
+    }
+
+    fn get_instructon_bpf_units(
+        instruction: &Instruction,
+        executor: &Arc<dyn ExecutorAdditional>,
+        pc_offset: usize,
+        static_syscalls: bool,
+    ) -> u64 {
+        match instruction.data() {
+            InstructionData::CallX(target)
+                if static_syscalls
+                    && executor
+                        .lookup_internal_function((target / INSN_SIZE - pc_offset as usize) as u32)
+                        .is_none() =>
+            {
+                2
+            }
+            _ => 1,
+        }
     }
 
     fn resolve_instruction(
@@ -134,8 +198,7 @@ impl Worker {
         analysis: &Analysis,
         pc_to_insn_index: &[usize],
         pc_offset: usize,
-        lc: &mut isize,
-    ) -> bpf_profile::error::Result<(usize, Instruction)> {
+    ) -> Instruction {
         let pc = item[11] as usize;
         let ebpf_instr = &analysis.instructions[pc_to_insn_index[pc]];
         let data = match ebpf_instr.opc {
@@ -166,11 +229,8 @@ impl Worker {
         };
 
         let text = executor.disassemble_instruction(ebpf_instr, &analysis.cfg_nodes);
-        let instruction = Instruction::new(pc + pc_offset, data, text);
 
-        *lc += 1;
-
-        Ok((*lc as usize, instruction))
+        Instruction::new(pc + pc_offset, data, text, None)
     }
 
     pub fn calc_pc_to_insn_index(analysis: &Analysis) -> Vec<usize> {
