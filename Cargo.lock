@@ -1592,7 +1592,7 @@ checksum = "a507befe795404456341dfab10cef66ead4c041f62b8b11bbb92bffe5d0953e0"
 [[package]]
 name = "solana-bpf-tracer-plugin-interface"
 version = "1.16.0"
-source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#3bcec3f5a0bc23f7565fb165bc2c69120d193537"
+source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#861e1dcb17819fe2568b213ed353ae2147be50f4"
 dependencies = [
  "solana-sdk",
  "solana_rbpf",
@@ -1602,7 +1602,7 @@ dependencies = [
 [[package]]
 name = "solana-frozen-abi"
 version = "1.16.0"
-source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#3bcec3f5a0bc23f7565fb165bc2c69120d193537"
+source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#861e1dcb17819fe2568b213ed353ae2147be50f4"
 dependencies = [
  "ahash",
  "blake3",
@@ -1635,7 +1635,7 @@ dependencies = [
 [[package]]
 name = "solana-frozen-abi-macro"
 version = "1.16.0"
-source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#3bcec3f5a0bc23f7565fb165bc2c69120d193537"
+source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#861e1dcb17819fe2568b213ed353ae2147be50f4"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1646,7 +1646,7 @@ dependencies = [
 [[package]]
 name = "solana-logger"
 version = "1.16.0"
-source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#3bcec3f5a0bc23f7565fb165bc2c69120d193537"
+source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#861e1dcb17819fe2568b213ed353ae2147be50f4"
 dependencies = [
  "env_logger",
  "lazy_static",
@@ -1656,7 +1656,7 @@ dependencies = [
 [[package]]
 name = "solana-program"
 version = "1.16.0"
-source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#3bcec3f5a0bc23f7565fb165bc2c69120d193537"
+source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#861e1dcb17819fe2568b213ed353ae2147be50f4"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -1709,7 +1709,7 @@ dependencies = [
 [[package]]
 name = "solana-sdk"
 version = "1.16.0"
-source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#3bcec3f5a0bc23f7565fb165bc2c69120d193537"
+source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#861e1dcb17819fe2568b213ed353ae2147be50f4"
 dependencies = [
  "assert_matches",
  "base64 0.13.1",
@@ -1761,7 +1761,7 @@ dependencies = [
 [[package]]
 name = "solana-sdk-macro"
 version = "1.16.0"
-source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#3bcec3f5a0bc23f7565fb165bc2c69120d193537"
+source = "git+https://github.com/neonlabsorg/solana.git?branch=bpf-tracing-plugins#861e1dcb17819fe2568b213ed353ae2147be50f4"
 dependencies = [
  "bs58",
  "proc-macro2",
