@@ -18,7 +18,7 @@ serde = "1.0.147"
 serde_derive = "1.0.147"
 serde_json = "1.0.89"
 solana-bpf-tracer-plugin-interface = { git = "https://github.com/neonlabsorg/solana.git", branch = "bpf-tracing-plugins" }
-solana_rbpf = "=0.2.39"
+solana_rbpf = "=0.2.40"
 solana-sdk = { git = "https://github.com/neonlabsorg/solana.git", branch = "bpf-tracing-plugins" }
 thiserror = "=1.0.35"
 threadpool = "1.8.1"
